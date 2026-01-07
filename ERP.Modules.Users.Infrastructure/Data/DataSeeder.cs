@@ -9,12 +9,12 @@ public class DataSeeder
 {
     private readonly UsersDbContext _context;
     private readonly UserManager<User> _userManager;
-    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+    private readonly RoleManager<Role> _roleManager;
 
     public DataSeeder(
         UsersDbContext context,
         UserManager<User> userManager,
-        RoleManager<IdentityRole<Guid>> roleManager)
+        RoleManager<Role> roleManager)
     {
         _context = context;
         _userManager = userManager;
@@ -32,7 +32,9 @@ public class DataSeeder
         var superAdminIdentityRole = await _roleManager.FindByNameAsync("SuperAdmin");
         if (superAdminIdentityRole == null)
         {
-            await _roleManager.CreateAsync(new IdentityRole<Guid> { Id = Guid.NewGuid(), Name = "SuperAdmin" });
+            var role = new Role("SuperAdmin");
+            role.SetCreated(Guid.Empty);
+            await _roleManager.CreateAsync(role);
         }
     }
 

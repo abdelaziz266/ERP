@@ -2,6 +2,6 @@ namespace ERP.SharedKernel.Enums;
 
 public enum Language
 {
-    Arabic = 1,
-    English = 2
+    ar =1,
+    en = 2
 }

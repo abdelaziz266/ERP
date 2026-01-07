@@ -24,10 +24,10 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponseDto<IEnumerable<UserDto>>>> GetAllUsers()
+    public async Task<ActionResult<PaginatedResponseDto<UserDto>>> GetAllUsers([FromQuery] PaginationQueryDto query)
     {
-        var users = await _userService.GetAllUsersAsync();
-        return Ok(ApiResponseDto<IEnumerable<UserDto>>.Success(users));
+        var result = await _userService.GetAllUsersWithPaginationAsync(query);
+        return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
@@ -36,49 +36,50 @@ public class UsersController : ControllerBase
         var user = await _userService.GetUserByIdAsync(id);
         if (user == null)
         {
-            return NotFound(ApiResponseDto<UserDto>.Error($"User with ID {id} not found", 404));
+            return NotFound(ApiResponseDto<UserDto>.Error("User not found", 404));
         }
         return Ok(ApiResponseDto<UserDto>.Success(user));
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResponseDto<UserDto>>> CreateUser([FromBody] CreateUserDto dto)
+    public async Task<ActionResult<ApiResponseDto<object>>> CreateUser([FromBody] CreateUserDto dto)
     {
         var userLanguage = User.GetUserLanguage();
-        var user = await _userService.CreateUserAsync(dto);
+        await _userService.CreateUserAsync(dto, userLanguage);
         var message = _localization.GetMessage("user.created", userLanguage);
-        return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, 
-            ApiResponseDto<UserDto>.Success(user, message, 201));
+        return Ok(ApiResponseDto<object>.Success(null, message));
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<ApiResponseDto<UserDto>>> UpdateUser(Guid id, [FromBody] UpdateUserDto dto)
+    public async Task<ActionResult<ApiResponseDto<object>>> UpdateUser(Guid id, [FromBody] UpdateUserDto dto)
     {
         var userLanguage = User.GetUserLanguage();
-        var user = await _userService.UpdateUserAsync(id, dto);
+        await _userService.UpdateUserAsync(id, dto, userLanguage);
         var message = _localization.GetMessage("user.updated", userLanguage);
-        return Ok(ApiResponseDto<UserDto>.Success(user, message));
+        return Ok(ApiResponseDto<object>.Success(null, message));
     }
 
     [HttpPut("language")]
-    public async Task<ActionResult<ApiResponseDto<UserDto>>> UpdateUserLanguage([FromBody] UpdateUserLanguageDto dto)
+    public async Task<ActionResult<ApiResponseDto<object>>> UpdateUserLanguage([FromBody] UpdateUserLanguageDto dto)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
-            return Unauthorized(ApiResponseDto<UserDto>.Error("Invalid token", 401));
+            return Unauthorized(ApiResponseDto<object>.Error("Invalid token", 401));
         }
 
         var userLanguage = User.GetUserLanguage();
-        var user = await _userService.UpdateUserLanguageAsync(userId, dto);
+        await _userService.UpdateUserLanguageAsync(userId, dto);
         var message = _localization.GetMessage("user.updated", userLanguage);
-        return Ok(ApiResponseDto<UserDto>.Success(user, message));
+        return Ok(ApiResponseDto<object>.Success(null, message));
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteUser(Guid id)
     {
-        await _userService.DeleteUserAsync(id);
-        return NoContent();
+        var userLanguage = User.GetUserLanguage();
+        await _userService.DeleteUserAsync(id, userLanguage);
+        var message = _localization.GetMessage("user.deleted", userLanguage);
+        return Ok(ApiResponseDto<object>.Success(null, message));
     }
 }

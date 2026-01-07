@@ -1,116 +1,139 @@
+using ERP.SharedKernel.Enums;
+
 namespace ERP.SharedKernel.Localization;
 
 public interface ILocalizationService
 {
-    string GetMessage(string key, string language = "en");
+    string GetMessage(string key, Language language = Language.en);
 }
 
 public class LocalizationService : ILocalizationService
 {
-    private readonly Dictionary<string, Dictionary<string, string>> _messages;
+    private readonly Dictionary<string, Dictionary<Language, string>> _messages;
 
     public LocalizationService()
     {
-        _messages = new Dictionary<string, Dictionary<string, string>>
+        _messages = new Dictionary<string, Dictionary<Language, string>>
         {
-            { "auth.invalid_credentials", new Dictionary<string, string>
+            { "auth.invalid_credentials", new Dictionary<Language, string>
                 {
-                    { "en", "Invalid username or password" },
-                    { "ar", "«”„ «·„” Œœ„ √Ê ﬂ·„… «·„—Ê— €Ì— ’ÕÌÕ…" }
+                    { Language.en, "Invalid username or password" },
+                    { Language.ar, "«”„ «·„” Œœ„ «Ê ﬂ·„… «·„—Ê— €Ì— ’ÕÌÕ…" }
                 }
             },
-            { "role.notfound", new Dictionary<string, string>
+            { "role.notfound", new Dictionary<Language, string>
                 {
-                    { "en", "Role not found" },
-                    { "ar", "«·œÊ— €Ì— „ÊÃÊœ" }
+                    { Language.en, "Role not found" },
+                    { Language.ar, "«·œÊ— €Ì— „ÊÃÊœ" }
                 }
             },
-            { "role.already_exists", new Dictionary<string, string>
+            { "role.already_exists", new Dictionary<Language, string>
                 {
-                    { "en", "Role {0} already exists" },
-                    { "ar", "«·œÊ— {0} „ÊÃÊœ »«·›⁄·" }
+                    { Language.en, "Role {0} already exists" },
+                    { Language.ar, "«·œÊ— {0} „ÊÃÊœ »«·›⁄·" }
                 }
             },
-            { "role.created", new Dictionary<string, string>
+            { "role.created", new Dictionary<Language, string>
                 {
-                    { "en", "Role created successfully" },
-                    { "ar", " „ ≈‰‘«¡ «·œÊ— »‰Ã«Õ" }
+                    { Language.en, "Role created successfully" },
+                    { Language.ar, " „ ≈‰‘«¡ «·œÊ— »‰Ã«Õ" }
                 }
             },
-            { "role.updated", new Dictionary<string, string>
+            { "role.updated", new Dictionary<Language, string>
                 {
-                    { "en", "Role updated successfully" },
-                    { "ar", " „  ÕœÌÀ «·œÊ— »‰Ã«Õ" }
+                    { Language.en, "Role updated successfully" },
+                    { Language.ar, " „  ÕœÌÀ «·œÊ— »‰Ã«Õ" }
                 }
             },
-            { "role.deleted", new Dictionary<string, string>
+            { "role.deleted", new Dictionary<Language, string>
                 {
-                    { "en", "Role deleted successfully" },
-                    { "ar", " „ Õ–› «·œÊ— »‰Ã«Õ" }
+                    { Language.en, "Role deleted successfully" },
+                    { Language.ar, " „ Õ–› «·œÊ— »‰Ã«Õ" }
                 }
             },
-            { "roles.retrieved", new Dictionary<string, string>
+            { "role.has_users", new Dictionary<Language, string>
                 {
-                    { "en", "Roles retrieved successfully" },
-                    { "ar", " „ «” —Ã«⁄ «·√œÊ«— »‰Ã«Õ" }
+                    { Language.en, "Cannot delete role because it has assigned users" },
+                    { Language.ar, "·« Ì„ﬂ‰ Õ–› «·œÊ— ·√‰Â „— »ÿ »„” Œœ„Ì‰" }
                 }
             },
-            { "role.assigned", new Dictionary<string, string>
+            { "roles.retrieved", new Dictionary<Language, string>
                 {
-                    { "en", "Role assigned successfully" },
-                    { "ar", " „ ≈”‰«œ «·œÊ— »‰Ã«Õ" }
+                    { Language.en, "Roles retrieved successfully" },
+                    { Language.ar, " „ «” —Ã«⁄ «·√œÊ«— »‰Ã«Õ" }
                 }
             },
-            { "role.removed", new Dictionary<string, string>
+            { "role.assigned", new Dictionary<Language, string>
                 {
-                    { "en", "Role removed successfully" },
-                    { "ar", " „ ≈“«·… «·œÊ— »‰Ã«Õ" }
+                    { Language.en, "Role assigned successfully" },
+                    { Language.ar, " „  ⁄ÌÌ‰ «·œÊ— »‰Ã«Õ" }
                 }
             },
-            { "user.notfound", new Dictionary<string, string>
+            { "role.removed", new Dictionary<Language, string>
                 {
-                    { "en", "User not found" },
-                    { "ar", "«·„” Œœ„ €Ì— „ÊÃÊœ" }
+                    { Language.en, "Role removed successfully" },
+                    { Language.ar, " „ ≈“«·… «·œÊ— »‰Ã«Õ" }
                 }
             },
-            { "user.email_exists", new Dictionary<string, string>
+            { "user.notfound", new Dictionary<Language, string>
                 {
-                    { "en", "Email {0} is already in use" },
-                    { "ar", "«·»—Ìœ «·≈·ﬂ —Ê‰Ì {0} ﬁÌœ «·«” Œœ«„ »«·›⁄·" }
+                    { Language.en, "User not found" },
+                    { Language.ar, "«·„” Œœ„ €Ì— „ÊÃÊœ" }
                 }
             },
-            { "user.created", new Dictionary<string, string>
+            { "user.email_exists", new Dictionary<Language, string>
                 {
-                    { "en", "User created successfully" },
-                    { "ar", " „ ≈‰‘«¡ «·„” Œœ„ »‰Ã«Õ" }
+                    { Language.en, "Email {0} is already in use" },
+                    { Language.ar, "«·»—Ìœ «·≈·ﬂ —Ê‰Ì {0} „” Œœ„ »«·›⁄·" }
                 }
             },
-            { "user.updated", new Dictionary<string, string>
+            { "user.userName_exists", new Dictionary<Language, string>
                 {
-                    { "en", "User updated successfully" },
-                    { "ar", " „  ÕœÌÀ «·„” Œœ„ »‰Ã«Õ" }
+                    { Language.en, "Username {0} is already in use" },
+                    { Language.ar, "«”„ «·„” Œœ„ {0} „” Œœ„ »«·›⁄·" }
                 }
             },
-            { "user.login_success", new Dictionary<string, string>
+            { "user.created", new Dictionary<Language, string>
                 {
-                    { "en", "Login successful" },
-                    { "ar", " „  ”ÃÌ· «·œŒÊ· »‰Ã«Õ" }
+                    { Language.en, "User created successfully" },
+                    { Language.ar, " „ ≈‰‘«¡ «·„” Œœ„ »‰Ã«Õ" }
+                }
+            },
+            { "user.updated", new Dictionary<Language, string>
+                {
+                    { Language.en, "User updated successfully" },
+                    { Language.ar, " „  ÕœÌÀ «·„” Œœ„ »‰Ã«Õ" }
+                }
+            },
+            { "user.deleted", new Dictionary<Language, string>
+                {
+                    { Language.en, "User deleted successfully" },
+                    { Language.ar, " „ Õ–› «·„” Œœ„ »‰Ã«Õ" }
+                }
+            },
+            { "users.retrieved", new Dictionary<Language, string>
+                {
+                    { Language.en, "Users retrieved successfully" },
+                    { Language.ar, " „ «” —Ã«⁄ «·„” Œœ„Ì‰ »‰Ã«Õ" }
+                }
+            },
+            { "user.login_success", new Dictionary<Language, string>
+                {
+                    { Language.en, "Login successful" },
+                    { Language.ar, " „  ”ÃÌ· «·œŒÊ· »‰Ã«Õ" }
                 }
             }
         };
     }
 
-    public string GetMessage(string key, string language = "en")
+    public string GetMessage(string key, Language language = Language.en)
     {
-        if (string.IsNullOrWhiteSpace(language))
-            language = "en";
-
         if (_messages.TryGetValue(key, out var translations))
         {
-            if (translations.TryGetValue(language.ToLower(), out var message))
+            if (translations.TryGetValue(language, out var message))
                 return message;
             
-            return translations.TryGetValue("en", out var englishMessage) ? englishMessage : key;
+            return translations.TryGetValue(Language.en, out var englishMessage) ? englishMessage : key;
         }
 
         return key;

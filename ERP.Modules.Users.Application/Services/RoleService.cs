@@ -2,20 +2,22 @@ using ERP.Modules.Users.Application.DTOs;
 using ERP.Modules.Users.Application.Interfaces;
 using ERP.Modules.Users.Domain.Entities;
 using ERP.SharedKernel.DTOs;
+using ERP.SharedKernel.Enums;
 using ERP.SharedKernel.Exceptions;
 using ERP.SharedKernel.Localization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Modules.Users.Application.Services;
 
 public class RoleService : IRoleService
 {
-    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+    private readonly RoleManager<Role> _roleManager;
     private readonly UserManager<User> _userManager;
     private readonly ILocalizationService _localization;
 
     public RoleService(
-        RoleManager<IdentityRole<Guid>> roleManager,
+        RoleManager<Role> roleManager,
         UserManager<User> userManager,
         ILocalizationService localization)
     {
@@ -26,43 +28,46 @@ public class RoleService : IRoleService
 
     public async Task<RoleDto?> GetRoleByIdAsync(string id)
     {
-        var role = await _roleManager.FindByIdAsync(id);
+        var role = await _roleManager.Roles
+            .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
         return role == null ? null : MapToDto(role);
     }
 
     public async Task<RoleDto?> GetRoleByNameAsync(string name)
     {
-        var role = await _roleManager.FindByNameAsync(name);
+        var role = await _roleManager.Roles
+            .FirstOrDefaultAsync(r => r.Name == name && !r.IsDeleted);
         return role == null ? null : MapToDto(role);
     }
 
     public async Task<IEnumerable<RoleDto>> GetAllRolesAsync()
     {
-        var roles = _roleManager.Roles.ToList();
+        var roles = await _roleManager.Roles
+            .Where(r => !r.IsDeleted)
+            .ToListAsync();
         return roles.Select(MapToDto).ToList();
     }
 
-    public async Task<PaginatedResponseDto<RoleDto>> GetAllRolesWithPaginationAsync(RoleQueryDto query)
+    public async Task<PaginatedResponseDto<RoleDto>> GetAllRolesWithPaginationAsync(PaginationQueryDto query)
     {
-        var roles = _roleManager.Roles.ToList();
+        var rolesQuery = _roleManager.Roles.Where(r => !r.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(query.SearchTerm))
         {
-            roles = roles.Where(r => r.Name.Contains(query.SearchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+            rolesQuery = rolesQuery.Where(r => r.Name.Contains(query.SearchTerm));
         }
 
-        var totalCount = roles.Count;
+        var totalCount = await rolesQuery.CountAsync();
 
-        var paginatedRoles = roles
+        var paginatedRoles = await rolesQuery
             .Skip((query.PageNumber - 1) * query.PageSize)
             .Take(query.PageSize)
-            .Select(MapToDto)
-            .ToList();
+            .ToListAsync();
 
-        var message = _localization.GetMessage("roles.retrieved", query.Language);
+        var message = _localization.GetMessage("roles.retrieved");
 
         return PaginatedResponseDto<RoleDto>.Success(
-            paginatedRoles,
+            paginatedRoles.Select(MapToDto).ToList(),
             query.PageNumber,
             query.PageSize,
             totalCount,
@@ -70,21 +75,18 @@ public class RoleService : IRoleService
         );
     }
 
-    public async Task<RoleDto> CreateRoleAsync(CreateRoleDto dto, string userLanguage = "en")
+    public async Task<RoleDto> CreateRoleAsync(CreateRoleDto dto, Language userLanguage = Language.en)
     {
-        var roleExists = await _roleManager.FindByNameAsync(dto.Name);
+        var roleExists = await _roleManager.Roles
+            .FirstOrDefaultAsync(r => r.Name == dto.Name && !r.IsDeleted);
         if (roleExists != null)
         {
             var message = _localization.GetMessage("role.already_exists", userLanguage);
             throw new AppException(string.Format(message, dto.Name), 409);
         }
 
-        var role = new IdentityRole<Guid>
-        {
-            Id = Guid.NewGuid(),
-            Name = dto.Name,
-            NormalizedName = dto.Name.ToUpper()
-        };
+        var role = new Role(dto.Name);
+        role.SetCreated(Guid.Empty);
 
         var result = await _roleManager.CreateAsync(role);
         if (!result.Succeeded)
@@ -96,9 +98,10 @@ public class RoleService : IRoleService
         return MapToDto(role);
     }
 
-    public async Task<RoleDto> UpdateRoleAsync(string id, UpdateRoleDto dto, string userLanguage = "en")
+    public async Task<RoleDto> UpdateRoleAsync(string id, UpdateRoleDto dto, Language userLanguage = Language.en)
     {
-        var role = await _roleManager.FindByIdAsync(id);
+        var role = await _roleManager.Roles
+            .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
         if (role == null)
         {
             var message = _localization.GetMessage("role.notfound", userLanguage);
@@ -107,7 +110,8 @@ public class RoleService : IRoleService
 
         if (!string.IsNullOrEmpty(dto.Name) && role.Name != dto.Name)
         {
-            var roleExists = await _roleManager.FindByNameAsync(dto.Name);
+            var roleExists = await _roleManager.Roles
+                .FirstOrDefaultAsync(r => r.Name == dto.Name && !r.IsDeleted && r.Id.ToString() != id);
             if (roleExists != null)
             {
                 var message = _localization.GetMessage("role.already_exists", userLanguage);
@@ -115,8 +119,10 @@ public class RoleService : IRoleService
             }
 
             role.Name = dto.Name;
-            role.NormalizedName = dto.Name.ToUpper();
+            role.NormalizedName = dto.Name.ToUpperInvariant();
         }
+
+        role.SetUpdated(Guid.Empty);
 
         var result = await _roleManager.UpdateAsync(role);
         if (!result.Succeeded)
@@ -128,16 +134,26 @@ public class RoleService : IRoleService
         return MapToDto(role);
     }
 
-    public async Task DeleteRoleAsync(string id, string userLanguage = "en")
+    public async Task DeleteRoleAsync(string id, Language userLanguage = Language.en)
     {
-        var role = await _roleManager.FindByIdAsync(id);
+        var role = await _roleManager.Roles
+            .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
         if (role == null)
         {
             var message = _localization.GetMessage("role.notfound", userLanguage);
             throw new AppException(message, 404);
         }
 
-        var result = await _roleManager.DeleteAsync(role);
+        var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!);
+        if (usersInRole.Any(u => !u.IsDeleted))
+        {
+            var message = _localization.GetMessage("role.has_users", userLanguage);
+            throw new AppException(message, 400);
+        }
+
+        role.SetDeleted(Guid.Empty);
+
+        var result = await _roleManager.UpdateAsync(role);
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
@@ -148,17 +164,18 @@ public class RoleService : IRoleService
     public async Task<IEnumerable<RoleDto>> GetUserRolesAsync(Guid userId)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user == null)
+        if (user == null || user.IsDeleted)
         {
             throw new AppException("User not found", 404);
         }
 
-        var roles = await _userManager.GetRolesAsync(user);
+        var roleNames = await _userManager.GetRolesAsync(user);
         var roleDtos = new List<RoleDto>();
 
-        foreach (var roleName in roles)
+        foreach (var roleName in roleNames)
         {
-            var role = await _roleManager.FindByNameAsync(roleName);
+            var role = await _roleManager.Roles
+                .FirstOrDefaultAsync(r => r.Name == roleName && !r.IsDeleted);
             if (role != null)
             {
                 roleDtos.Add(MapToDto(role));
@@ -168,16 +185,17 @@ public class RoleService : IRoleService
         return roleDtos;
     }
 
-    public async Task AssignRoleToUserAsync(Guid userId, string roleName, string userLanguage = "en")
+    public async Task AssignRoleToUserAsync(Guid userId, string roleName, Language userLanguage = Language.en)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user == null)
+        if (user == null || user.IsDeleted)
         {
             throw new AppException("User not found", 404);
         }
 
-        var roleExists = await _roleManager.FindByNameAsync(roleName);
-        if (roleExists == null)
+        var role = await _roleManager.Roles
+            .FirstOrDefaultAsync(r => r.Name == roleName && !r.IsDeleted);
+        if (role == null)
         {
             var message = _localization.GetMessage("role.notfound", userLanguage);
             throw new AppException(message, 404);
@@ -197,16 +215,17 @@ public class RoleService : IRoleService
         }
     }
 
-    public async Task RemoveRoleFromUserAsync(Guid userId, string roleName, string userLanguage = "en")
+    public async Task RemoveRoleFromUserAsync(Guid userId, string roleName, Language userLanguage = Language.en)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user == null)
+        if (user == null || user.IsDeleted)
         {
             throw new AppException("User not found", 404);
         }
 
-        var roleExists = await _roleManager.FindByNameAsync(roleName);
-        if (roleExists == null)
+        var role = await _roleManager.Roles
+            .FirstOrDefaultAsync(r => r.Name == roleName && !r.IsDeleted);
+        if (role == null)
         {
             var message = _localization.GetMessage("role.notfound", userLanguage);
             throw new AppException(message, 404);
@@ -226,13 +245,15 @@ public class RoleService : IRoleService
         }
     }
 
-    private static RoleDto MapToDto(IdentityRole<Guid> role)
+    private static RoleDto MapToDto(Role role)
     {
         return new RoleDto
         {
             Id = role.Id.ToString(),
             Name = role.Name ?? string.Empty,
-            NormalizedName = role.NormalizedName ?? string.Empty
+            NormalizedName = role.NormalizedName ?? string.Empty,
+            CreatedAt = role.CreatedAt,
+            UpdatedAt = role.UpdatedAt
         };
     }
 }

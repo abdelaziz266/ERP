@@ -33,14 +33,23 @@ public class UserRepository : BaseRepository<User>, IUserRepository
 
     public async Task<User?> GetByUsernameAsync(string username)
     {
-        return await DbSet
-            .FirstOrDefaultAsync(u => u.UserName == username.ToLower() && !u.IsDeleted);
+        var normalized = username.Trim().ToUpperInvariant();
+
+        return await DbSet.FirstOrDefaultAsync(u =>
+            u.NormalizedUserName == normalized &&
+            !u.IsDeleted);
     }
+
 
     public async Task<bool> EmailExistsAsync(string email)
     {
         return await DbSet
-            .AnyAsync(u => u.Email == email.ToLower() && !u.IsDeleted);
+            .AnyAsync(u => u.Email.ToLower() == email.ToLower() && !u.IsDeleted);
+    }
+    public async Task<bool> UserExistsAsync(string userName)
+    {
+        return await DbSet
+            .AnyAsync(u => u.UserName.ToLower() == userName.ToLower() && !u.IsDeleted);
     }
 
     public override async Task DeleteAsync(User entity)

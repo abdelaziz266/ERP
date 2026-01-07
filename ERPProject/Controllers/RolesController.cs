@@ -5,7 +5,6 @@ using ERP.SharedKernel.Localization;
 using ERPProject.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Data;
 
 namespace ERPProject.Controllers;
 
@@ -24,9 +23,8 @@ public class RolesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PaginatedResponseDto<RoleDto>>> GetAllRoles([FromQuery] RoleQueryDto query)
+    public async Task<ActionResult<PaginatedResponseDto<RoleDto>>> GetAllRoles([FromQuery] PaginationQueryDto query)
     {
-        query.Language = User.GetUserLanguage();
         var result = await _roleService.GetAllRolesWithPaginationAsync(query);
         return Ok(result);
     }
@@ -43,21 +41,21 @@ public class RolesController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResponseDto<RoleDto>>> CreateRole([FromBody] CreateRoleDto dto)
+    public async Task<ActionResult<ApiResponseDto<object>>> CreateRole([FromBody] CreateRoleDto dto)
     {
         var userLanguage = User.GetUserLanguage();
-        var role = await _roleService.CreateRoleAsync(dto, userLanguage);
+        await _roleService.CreateRoleAsync(dto, userLanguage);
         var message = _localization.GetMessage("role.created", userLanguage);
-        return Ok(ApiResponseDto<RoleDto>.Success(role, message));
+        return Ok(ApiResponseDto<object>.Success(null, message));
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponseDto<RoleDto>>> UpdateRole(string id, [FromBody] UpdateRoleDto dto)
+    public async Task<ActionResult<ApiResponseDto<object>>> UpdateRole(string id, [FromBody] UpdateRoleDto dto)
     {
         var userLanguage = User.GetUserLanguage();
-        var role = await _roleService.UpdateRoleAsync(id, dto, userLanguage);
+        await _roleService.UpdateRoleAsync(id, dto, userLanguage);
         var message = _localization.GetMessage("role.updated", userLanguage);
-        return Ok(ApiResponseDto<RoleDto>.Success(role, message));
+        return Ok(ApiResponseDto<object>.Success(null, message));
     }
 
     [HttpDelete("{id}")]

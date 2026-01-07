@@ -103,7 +103,7 @@ builder.Services.AddIdentityCore<User>(options =>
     options.Password.RequireUppercase = false;
     options.Password.RequireLowercase = false;
 })
-.AddRoles<IdentityRole<Guid>>()
+.AddRoles<Role>()
 .AddEntityFrameworkStores<UsersDbContext>()
 .AddDefaultTokenProviders();
 

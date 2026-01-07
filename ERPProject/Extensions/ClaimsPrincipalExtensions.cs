@@ -1,3 +1,4 @@
+using ERP.SharedKernel.Enums;
 using System.Security.Claims;
 
 namespace ERPProject.Extensions;
@@ -15,8 +16,9 @@ public static class ClaimsPrincipalExtensions
         return Guid.TryParse(id, out var guid) ? guid : Guid.Empty;
     }
 
-    public static string GetUserLanguage(this ClaimsPrincipal user)
+    public static Language GetUserLanguage(this ClaimsPrincipal user)
     {
-        return user?.FindFirst("Language")?.Value ?? "en";
+        var langValue = user?.FindFirst("Language")?.Value;
+        return Enum.TryParse<Language>(langValue, true, out var lang) ? lang : Language.en;
     }
 }

@@ -1,9 +1,8 @@
-namespace ERP.Modules.Users.Application.DTOs;
+namespace ERP.SharedKernel.DTOs;
 
-public class RoleQueryDto
+public class PaginationQueryDto
 {
     public string? SearchTerm { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
-    public string Language { get; set; } = "en";
 }

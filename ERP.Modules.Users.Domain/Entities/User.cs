@@ -10,7 +10,7 @@ public class User : IdentityUser<Guid>
     public Gender Gender { get; private set; }
     public DateTime? Birthday { get; private set; }
     public bool IsActive { get; set; } = true;
-    public string Language { get; set; } = "en";
+    public Language Language { get; set; } = Language.en;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -88,13 +88,11 @@ public class User : IdentityUser<Guid>
             throw new ArgumentException("Username is required");
 
         UserName = username.Trim();
+        NormalizedUserName = UserName.ToUpperInvariant();
     }
 
-    public void SetLanguage(string language)
+    public void SetLanguage(Language language)
     {
-        if (string.IsNullOrWhiteSpace(language))
-            throw new ArgumentException("Language is required");
-
-        Language = language.Trim().ToLower();
+        Language = language;
     }
 }

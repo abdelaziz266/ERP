@@ -23,7 +23,7 @@ public class TokenService : ITokenService
         var secretKey = jwtSettings["SecretKey"];
         var issuer = jwtSettings["Issuer"];
         var audience = jwtSettings["Audience"];
-        var expirationMinutes = int.Parse(jwtSettings["ExpirationMinutes"] ?? "60");
+        var expirationDays = int.Parse(jwtSettings["ExpirationDays"] ?? "1");
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -34,7 +34,7 @@ public class TokenService : ITokenService
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Name, user.UserName),
             new Claim("FullName", user.FullName),
-            new Claim("Language", user.Language)
+            new Claim("Language", user.Language.ToString())
         };
 
         if (!string.IsNullOrEmpty(user.PhoneNumber))
@@ -46,16 +46,16 @@ public class TokenService : ITokenService
             issuer: issuer,
             audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
+            expires: DateTime.UtcNow.AddDays(expirationDays),
             signingCredentials: credentials
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public int GetTokenExpirationMinutes()
+    public int GetTokenExpirationDays()
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
-        return int.Parse(jwtSettings["ExpirationMinutes"] ?? "60");
+        return int.Parse(jwtSettings["ExpirationDays"] ?? "1");
     }
 }
