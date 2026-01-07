@@ -15,7 +15,7 @@ public class UpdateUserDto
     [StringLength(256, ErrorMessage = "Username cannot exceed 256 characters")]
     public string Username { get; set; }
 
-    [StringLength(256, MinimumLength = 8, ErrorMessage = "Password must be between 8 and 256 characters")]
+    [StringLength(256, MinimumLength = 6, ErrorMessage = "Password must be between 6 and 256 characters")]
     public string Password { get; set; }
 
     public Gender Gender { get; set; }

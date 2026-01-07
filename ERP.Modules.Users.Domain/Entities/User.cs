@@ -24,6 +24,7 @@ public class User : IdentityUser<Guid>
     public User(string fullName, string email, Gender gender, DateTime? birthday = null)
     {
         Id = Guid.NewGuid();
+        SecurityStamp = Guid.NewGuid().ToString();
         SetFullName(fullName);
         SetEmail(email);
         Gender = gender;
@@ -45,6 +46,7 @@ public class User : IdentityUser<Guid>
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
         Email = normalizedEmail;
+        NormalizedEmail = normalizedEmail.ToUpperInvariant();
         UserName = normalizedEmail;
     }
 
