@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ERP.Modules.Users.Application.DTOs;
 using ERP.Modules.Users.Application.Interfaces;
 using ERP.SharedKernel.DTOs;
+using ERP.SharedKernel.Interfaces;
 using ERP.SharedKernel.Localization;
 using ERPProject.Extensions;
 using System.Security.Claims;
@@ -16,11 +17,13 @@ public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly ILocalizationService _localization;
+    private readonly IFileService _fileService;
 
-    public UsersController(IUserService userService, ILocalizationService localization)
+    public UsersController(IUserService userService, ILocalizationService localization, IFileService fileService)
     {
         _userService = userService;
         _localization = localization;
+        _fileService = fileService;
     }
 
     [HttpGet]
@@ -42,19 +45,53 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResponseDto<object>>> CreateUser([FromBody] CreateUserDto dto)
+    public async Task<ActionResult<ApiResponseDto<object>>> CreateUser([FromForm] CreateUserDto dto, IFormFile? profilePicture)
     {
         var userLanguage = User.GetUserLanguage();
-        await _userService.CreateUserAsync(dto, userLanguage);
+        
+        string? profilePicturePath = null;
+        if (profilePicture != null && profilePicture.Length > 0)
+        {
+            using var stream = profilePicture.OpenReadStream();
+            profilePicturePath = await _fileService.UploadFileAsync(stream, profilePicture.FileName, "profile-pictures");
+        }
+
+        await _userService.CreateUserAsync(dto, profilePicturePath, userLanguage);
         var message = _localization.GetMessage("user.created", userLanguage);
         return Ok(ApiResponseDto<object>.Success(null, message));
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<ApiResponseDto<object>>> UpdateUser(Guid id, [FromBody] UpdateUserDto dto)
+    public async Task<ActionResult<ApiResponseDto<object>>> UpdateUser(Guid id, [FromForm] UpdateUserDto dto, IFormFile? profilePicture)
     {
         var userLanguage = User.GetUserLanguage();
-        await _userService.UpdateUserAsync(id, dto, userLanguage);
+
+        string? profilePicturePath = null;
+        if (profilePicture != null && profilePicture.Length > 0)
+        {
+            using var stream = profilePicture.OpenReadStream();
+            profilePicturePath = await _fileService.UploadFileAsync(stream, profilePicture.FileName, "profile-pictures");
+        }
+
+        await _userService.UpdateUserAsync(id, dto, profilePicturePath, userLanguage);
+        var message = _localization.GetMessage("user.updated", userLanguage);
+        return Ok(ApiResponseDto<object>.Success(null, message));
+    }
+
+    [HttpPut("{id:guid}/profile-picture")]
+    public async Task<ActionResult<ApiResponseDto<object>>> UpdateProfilePicture(Guid id, IFormFile profilePicture)
+    {
+        var userLanguage = User.GetUserLanguage();
+
+        if (profilePicture == null || profilePicture.Length == 0)
+        {
+            return BadRequest(ApiResponseDto<object>.Error("Profile picture is required", 400));
+        }
+
+        using var stream = profilePicture.OpenReadStream();
+        var profilePicturePath = await _fileService.UploadFileAsync(stream, profilePicture.FileName, "profile-pictures");
+
+        await _userService.UpdateUserProfilePictureAsync(id, profilePicturePath, userLanguage);
         var message = _localization.GetMessage("user.updated", userLanguage);
         return Ok(ApiResponseDto<object>.Success(null, message));
     }

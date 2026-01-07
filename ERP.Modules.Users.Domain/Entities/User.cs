@@ -9,6 +9,7 @@ public class User : IdentityUser<Guid>
     public string FullName { get; private set; } = null!;
     public Gender Gender { get; private set; }
     public DateTime? Birthday { get; private set; }
+    public string? ProfilePicture { get; private set; }
     public bool IsActive { get; set; } = true;
     public Language Language { get; set; } = Language.en;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -77,6 +78,11 @@ public class User : IdentityUser<Guid>
     public void SetBirthday(DateTime? birthday)
     {
         Birthday = birthday;
+    }
+
+    public void SetProfilePicture(string? profilePicture)
+    {
+        ProfilePicture = profilePicture;
     }
 
     public void SetIsActive(bool isActive)

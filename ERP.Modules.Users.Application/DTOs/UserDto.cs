@@ -10,6 +10,7 @@ public class UserDto
     public string Username { get; set; }
     public Gender Gender { get; set; }
     public DateTime? Birthday { get; set; }
+    public string? ProfilePicture { get; set; }
     public bool IsActive { get; set; }
     public Language Language { get; set; }
     public DateTime CreatedAt { get; set; }

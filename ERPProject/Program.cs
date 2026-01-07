@@ -4,6 +4,8 @@ using ERP.Modules.Users.Domain.Entities;
 using ERP.Modules.Users.Infrastructure.Data;
 using ERPProject.Middleware;
 using ERP.SharedKernel.Localization;
+using ERP.SharedKernel.Interfaces;
+using ERP.SharedKernel.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
@@ -53,7 +55,9 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ILocalizationService, LocalizationService>();
+builder.Services.AddScoped<IFileService, FileService>();
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
@@ -123,6 +127,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();

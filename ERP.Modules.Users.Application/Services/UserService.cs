@@ -105,7 +105,7 @@ public class UserService : IUserService
         );
     }
 
-    public async Task<UserDto> CreateUserAsync(CreateUserDto dto, Language userLanguage = Language.en)
+    public async Task<UserDto> CreateUserAsync(CreateUserDto dto, string? profilePicturePath = null, Language userLanguage = Language.en)
     {
         if (await _unitOfWork.UserRepository.EmailExistsAsync(dto.Email))
         {
@@ -121,6 +121,11 @@ public class UserService : IUserService
         var user = new User(dto.FullName, dto.Email, dto.Gender, dto.Birthday);
         user.SetUsername(dto.Username);
         user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
+
+        if (!string.IsNullOrEmpty(profilePicturePath))
+        {
+            user.SetProfilePicture(profilePicturePath);
+        }
 
         await _unitOfWork.UserRepository.AddAsync(user);
         await _unitOfWork.SaveChangesAsync();
@@ -138,7 +143,7 @@ public class UserService : IUserService
         return MapToDto(user, roles.ToList());
     }
 
-    public async Task<UserDto> UpdateUserAsync(Guid id, UpdateUserDto dto, Language userLanguage = Language.en)
+    public async Task<UserDto> UpdateUserAsync(Guid id, UpdateUserDto dto, string? profilePicturePath = null, Language userLanguage = Language.en)
     {
         var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
         if (user == null)
@@ -174,14 +179,19 @@ public class UserService : IUserService
             user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
         }
 
-        if (dto.Gender != default)
+        if (dto.Gender.HasValue)
         {
-            user.SetGender(dto.Gender);
+            user.SetGender(dto.Gender.Value);
         }
 
         if (dto.Birthday.HasValue)
         {
             user.SetBirthday(dto.Birthday.Value);
+        }
+
+        if (!string.IsNullOrEmpty(profilePicturePath))
+        {
+            user.SetProfilePicture(profilePicturePath);
         }
 
         if (dto.IsActive.HasValue)
@@ -205,6 +215,25 @@ public class UserService : IUserService
         }
 
         user.SetUpdated(Guid.Empty);
+
+        await _unitOfWork.UserRepository.UpdateAsync(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        var roles = await _userManager.GetRolesAsync(user);
+        return MapToDto(user, roles.ToList());
+    }
+
+    public async Task<UserDto> UpdateUserProfilePictureAsync(Guid userId, string profilePicturePath, Language userLanguage = Language.en)
+    {
+        var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+            var message = _localization.GetMessage("user.notfound", userLanguage);
+            throw new AppException(message, 404);
+        }
+
+        user.SetProfilePicture(profilePicturePath);
+        user.SetUpdated(userId);
 
         await _unitOfWork.UserRepository.UpdateAsync(user);
         await _unitOfWork.SaveChangesAsync();
@@ -284,6 +313,7 @@ public class UserService : IUserService
             Username = user.UserName ?? string.Empty,
             Gender = user.Gender,
             Birthday = user.Birthday,
+            ProfilePicture = user.ProfilePicture,
             IsActive = user.IsActive,
             Language = user.Language,
             CreatedAt = user.CreatedAt,

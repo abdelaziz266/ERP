@@ -6,19 +6,19 @@ namespace ERP.Modules.Users.Application.DTOs;
 public class UpdateUserDto
 {
     [StringLength(256, ErrorMessage = "FullName cannot exceed 256 characters")]
-    public string FullName { get; set; }
+    public string? FullName { get; set; }
 
     [EmailAddress(ErrorMessage = "Email format is invalid")]
     [StringLength(256, ErrorMessage = "Email cannot exceed 256 characters")]
-    public string Email { get; set; }
+    public string? Email { get; set; }
 
     [StringLength(256, ErrorMessage = "Username cannot exceed 256 characters")]
-    public string Username { get; set; }
+    public string? Username { get; set; }
 
     [StringLength(256, MinimumLength = 6, ErrorMessage = "Password must be between 6 and 256 characters")]
-    public string Password { get; set; }
+    public string? Password { get; set; }
 
-    public Gender Gender { get; set; }
+    public Gender? Gender { get; set; }
 
     public DateTime? Birthday { get; set; }
 
