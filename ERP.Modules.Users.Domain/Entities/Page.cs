@@ -11,6 +11,7 @@ public class Page : BaseEntity
 
     public Page? Parent { get; private set; }
     public ICollection<Page> SubPages { get; private set; } = [];
+    public virtual ICollection<RolePage> RolePages { get; set; } = [];
 
     private Page() { }
 

@@ -12,6 +12,8 @@ public class Role : IdentityRole<Guid>
     public DateTime? DeletedAt { get; set; }
     public Guid? DeletedBy { get; set; }
 
+    public virtual ICollection<RolePage> RolePages { get; set; } = [];
+
     public Role() : base()
     {
         Id = Guid.NewGuid();

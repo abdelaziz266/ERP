@@ -7,4 +7,5 @@ public interface IUsersUnitOfWork : IUnitOfWork
 {
     IUserRepository UserRepository { get; }
     IPageRepository PageRepository { get; }
+    IRolePageRepository RolePageRepository { get; }
 }

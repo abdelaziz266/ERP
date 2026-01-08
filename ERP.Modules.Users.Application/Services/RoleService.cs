@@ -32,6 +32,8 @@ public class RoleService : IRoleService
     public async Task<ApiResponseDto<RoleDto>> GetRoleByIdAsync(string id)
     {
         var role = await _roleManager.Roles
+            .Include(r => r.RolePages.Where(rp => !rp.IsDeleted))
+                .ThenInclude(rp => rp.Page)
             .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
         
         if (role == null)
@@ -59,7 +61,8 @@ public class RoleService : IRoleService
 
     public async Task<PaginatedResponseDto<RoleDto>> GetAllRolesWithPaginationAsync(PaginationQueryDto query)
     {
-        var rolesQuery = _roleManager.Roles.Where(r => !r.IsDeleted);
+        var rolesQuery = _roleManager.Roles
+            .Where(r => !r.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(query.SearchTerm))
         {
@@ -69,6 +72,8 @@ public class RoleService : IRoleService
         var totalCount = await rolesQuery.CountAsync();
 
         var paginatedRoles = await rolesQuery
+            .Include(r => r.RolePages.Where(rp => !rp.IsDeleted))
+                .ThenInclude(rp => rp.Page)
             .Skip((query.PageNumber - 1) * query.PageSize)
             .Take(query.PageSize)
             .ToListAsync();
@@ -84,8 +89,7 @@ public class RoleService : IRoleService
 
     public async Task<ApiResponseDto<object>> CreateRoleAsync(CreateRoleDto dto, Guid currentUserId)
     {
-        var currentUser = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
-        var userLanguage = currentUser?.Language ?? Language.en;
+        var userLanguage = await GetUserLanguageAsync(currentUserId);
 
         var roleExists = await _roleManager.Roles
             .FirstOrDefaultAsync(r => r.Name == dto.Name && !r.IsDeleted);
@@ -109,8 +113,7 @@ public class RoleService : IRoleService
 
     public async Task<ApiResponseDto<object>> UpdateRoleAsync(string id, UpdateRoleDto dto, Guid currentUserId)
     {
-        var currentUser = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
-        var userLanguage = currentUser?.Language ?? Language.en;
+        var userLanguage = await GetUserLanguageAsync(currentUserId);
 
         var role = await _roleManager.Roles
             .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
@@ -119,6 +122,7 @@ public class RoleService : IRoleService
             throw new AppException(_localization.GetMessage("role.notfound", userLanguage), 404);
         }
 
+        // Update role name if provided
         if (!string.IsNullOrEmpty(dto.Name) && role.Name != dto.Name)
         {
             var roleExists = await _roleManager.Roles
@@ -132,6 +136,12 @@ public class RoleService : IRoleService
             role.NormalizedName = dto.Name.ToUpperInvariant();
         }
 
+        // Update role pages if provided
+        if (dto.PageIds != null)
+        {
+            await UpdateRolePagesAsync(role.Id, dto.PageIds, currentUserId, userLanguage);
+        }
+
         role.SetUpdated(currentUserId);
 
         var result = await _roleManager.UpdateAsync(role);
@@ -141,13 +151,14 @@ public class RoleService : IRoleService
             throw new AppException($"Failed to update role: {errors}", 400);
         }
 
+        await _unitOfWork.SaveChangesAsync();
+
         return ApiResponseDto<object>.Success(null, _localization.GetMessage("role.updated", userLanguage));
     }
 
     public async Task<ApiResponseDto<object>> DeleteRoleAsync(string id, Guid currentUserId)
     {
-        var currentUser = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
-        var userLanguage = currentUser?.Language ?? Language.en;
+        var userLanguage = await GetUserLanguageAsync(currentUserId);
 
         var role = await _roleManager.Roles
             .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
@@ -162,6 +173,9 @@ public class RoleService : IRoleService
             throw new AppException(_localization.GetMessage("role.has_users", userLanguage), 400);
         }
 
+        // Delete role pages
+        await _unitOfWork.RolePageRepository.DeleteByRoleIdAsync(role.Id);
+
         role.SetDeleted(currentUserId);
 
         var result = await _roleManager.UpdateAsync(role);
@@ -171,7 +185,66 @@ public class RoleService : IRoleService
             throw new AppException($"Failed to delete role: {errors}", 400);
         }
 
+        await _unitOfWork.SaveChangesAsync();
+
         return ApiResponseDto<object>.Success(null, _localization.GetMessage("role.deleted", userLanguage));
+    }
+
+    #region Private Methods
+
+    private async Task<Language> GetUserLanguageAsync(Guid userId)
+    {
+        var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+        return user?.Language ?? Language.en;
+    }
+
+    private async Task UpdateRolePagesAsync(Guid roleId, List<Guid> newPageIds, Guid currentUserId, Language userLanguage)
+    {
+        // Validate all page IDs exist
+        foreach (var pageId in newPageIds)
+        {
+            var page = await _unitOfWork.PageRepository.GetByIdAsync(pageId);
+            if (page == null)
+            {
+                throw new AppException(_localization.GetMessage("page.notfound", userLanguage), 404);
+            }
+        }
+
+        // Get current page IDs for this role
+        var currentPageIds = (await _unitOfWork.RolePageRepository.GetPageIdsByRoleIdAsync(roleId)).ToList();
+
+        // Find pages to add (in newPageIds but not in currentPageIds)
+        var pageIdsToAdd = newPageIds.Except(currentPageIds).ToList();
+
+        // Find pages to remove (in currentPageIds but not in newPageIds)
+        var pageIdsToRemove = currentPageIds.Except(newPageIds).ToList();
+
+        // Add new role pages
+        if (pageIdsToAdd.Count > 0)
+        {
+            var rolePagesToAdd = pageIdsToAdd.Select(pageId =>
+            {
+                var rolePage = new RolePage(roleId, pageId);
+                rolePage.SetCreated(currentUserId);
+                return rolePage;
+            });
+
+            await _unitOfWork.RolePageRepository.AddRangeAsync(rolePagesToAdd);
+        }
+
+        // Remove old role pages
+        if (pageIdsToRemove.Count > 0)
+        {
+            foreach (var pageId in pageIdsToRemove)
+            {
+                var rolePage = await _unitOfWork.RolePageRepository.GetByRoleAndPageAsync(roleId, pageId);
+                if (rolePage != null)
+                {
+                    rolePage.SetDeleted(currentUserId);
+                    await _unitOfWork.RolePageRepository.UpdateAsync(rolePage);
+                }
+            }
+        }
     }
 
     private static RoleDto MapToDto(Role role)
@@ -182,7 +255,18 @@ public class RoleService : IRoleService
             Name = role.Name ?? string.Empty,
             NormalizedName = role.NormalizedName ?? string.Empty,
             CreatedAt = role.CreatedAt,
-            UpdatedAt = role.UpdatedAt
+            UpdatedAt = role.UpdatedAt,
+            Pages = role.RolePages?
+                .Where(rp => !rp.IsDeleted && rp.Page != null && !rp.Page.IsDeleted)
+                .Select(rp => new RolePageDto
+                {
+                    Id = rp.Page.Id,
+                    NameAr = rp.Page.NameAr,
+                    NameEn = rp.Page.NameEn,
+                    Key = rp.Page.Key
+                }).ToList() ?? []
         };
     }
+
+    #endregion
 }

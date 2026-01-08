@@ -15,6 +15,7 @@ namespace ERP.Modules.Users.Infrastructure.Data
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<Page> Pages { get; set; } = null!;
+        public DbSet<RolePage> RolePages { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -80,6 +81,10 @@ namespace ERP.Modules.Users.Infrastructure.Data
                     .IsRequired()
                     .HasMaxLength(256);
 
+                entity.Property(p => p.Key)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
                 entity.Property(p => p.CreatedAt)
                     .HasDefaultValueSql("GETUTCDATE()");
 
@@ -93,6 +98,34 @@ namespace ERP.Modules.Users.Infrastructure.Data
 
                 entity.HasIndex(p => p.NameAr).IsUnique().HasFilter("IsDeleted = 0");
                 entity.HasIndex(p => p.NameEn).IsUnique().HasFilter("IsDeleted = 0");
+                entity.HasIndex(p => p.Key).IsUnique().HasFilter("IsDeleted = 0");
+            });
+
+            modelBuilder.Entity<RolePage>(entity =>
+            {
+                entity.ToTable("RolePages");
+
+                entity.HasKey(rp => rp.Id);
+
+                entity.Property(rp => rp.CreatedAt)
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(rp => rp.IsDeleted)
+                    .HasDefaultValue(false);
+
+                entity.HasOne(rp => rp.Role)
+                    .WithMany(r => r.RolePages)
+                    .HasForeignKey(rp => rp.RoleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(rp => rp.Page)
+                    .WithMany(p => p.RolePages)
+                    .HasForeignKey(rp => rp.PageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(rp => new { rp.RoleId, rp.PageId })
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
             });
         }
     }

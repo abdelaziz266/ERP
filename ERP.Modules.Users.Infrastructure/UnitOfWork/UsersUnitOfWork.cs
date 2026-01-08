@@ -13,6 +13,7 @@ public class UsersUnitOfWork : IUsersUnitOfWork
     
     private IUserRepository? _userRepository;
     private IPageRepository? _pageRepository;
+    private IRolePageRepository? _rolePageRepository;
 
     public UsersUnitOfWork(UsersDbContext context)
     {
@@ -34,6 +35,15 @@ public class UsersUnitOfWork : IUsersUnitOfWork
         {
             _pageRepository ??= new PageRepository(_context);
             return _pageRepository;
+        }
+    }
+
+    public IRolePageRepository RolePageRepository
+    {
+        get
+        {
+            _rolePageRepository ??= new RolePageRepository(_context);
+            return _rolePageRepository;
         }
     }
 
