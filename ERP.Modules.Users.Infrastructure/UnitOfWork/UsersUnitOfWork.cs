@@ -12,6 +12,7 @@ public class UsersUnitOfWork : IUsersUnitOfWork
     private IDbContextTransaction? _transaction;
     
     private IUserRepository? _userRepository;
+    private IPageRepository? _pageRepository;
 
     public UsersUnitOfWork(UsersDbContext context)
     {
@@ -24,6 +25,15 @@ public class UsersUnitOfWork : IUsersUnitOfWork
         {
             _userRepository ??= new UserRepository(_context);
             return _userRepository;
+        }
+    }
+
+    public IPageRepository PageRepository
+    {
+        get
+        {
+            _pageRepository ??= new PageRepository(_context);
+            return _pageRepository;
         }
     }
 

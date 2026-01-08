@@ -14,6 +14,7 @@ namespace ERP.Modules.Users.Infrastructure.Data
 
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
+        public DbSet<Page> Pages { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,6 +64,35 @@ namespace ERP.Modules.Users.Infrastructure.Data
 
                 entity.Property(r => r.IsDeleted)
                     .HasDefaultValue(false);
+            });
+
+            modelBuilder.Entity<Page>(entity =>
+            {
+                entity.ToTable("Pages");
+
+                entity.HasKey(p => p.Id);
+
+                entity.Property(p => p.NameAr)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                entity.Property(p => p.NameEn)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                entity.Property(p => p.CreatedAt)
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(p => p.IsDeleted)
+                    .HasDefaultValue(false);
+
+                entity.HasOne(p => p.Parent)
+                    .WithMany(p => p.SubPages)
+                    .HasForeignKey(p => p.ParentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(p => p.NameAr).IsUnique().HasFilter("IsDeleted = 0");
+                entity.HasIndex(p => p.NameEn).IsUnique().HasFilter("IsDeleted = 0");
             });
         }
     }

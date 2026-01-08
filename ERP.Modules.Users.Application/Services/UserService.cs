@@ -41,12 +41,7 @@ public class UserService : IUserService
 
     public async Task<ApiResponseDto<UserDto>> GetUserByIdAsync(Guid id)
     {
-        var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
-        if (user == null)
-        {
-            throw new AppException(_localization.GetMessage("user.notfound"), 404);
-        }
-
+        var user = await GetUserOrThrowAsync(id);
         var roles = await _userManager.GetRolesAsync(user);
         return ApiResponseDto<UserDto>.Success(MapToDto(user, roles.ToList()));
     }
@@ -79,36 +74,28 @@ public class UserService : IUserService
             userDtos.Add(MapToDto(user, roles.ToList()));
         }
 
-        var message = _localization.GetMessage("users.retrieved");
-
         return PaginatedResponseDto<UserDto>.Success(
             userDtos,
             query.PageNumber,
             query.PageSize,
             totalCount,
-            message
+            _localization.GetMessage("users.retrieved")
         );
     }
 
     public async Task<ApiResponseDto<object>> CreateUserAsync(CreateUserDto dto, IFormFile? profilePicture, Guid currentUserId)
     {
-        var user = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
-        var userLanguage = user?.Language ?? Language.en;
+        var userLanguage = await GetUserLanguageAsync(currentUserId);
 
-        if (await _unitOfWork.UserRepository.EmailExistsAsync(dto.Email))
-        {
-            var message = _localization.GetMessage("user.email_exists", userLanguage);
-            throw new AppException(string.Format(message, dto.Email), 409);
-        }
-        if (await _unitOfWork.UserRepository.UserExistsAsync(dto.Username))
-        {
-            var message = _localization.GetMessage("user.userName_exists", userLanguage);
-            throw new AppException(string.Format(message, dto.Username), 409);
-        }
+        await ValidateEmailNotExistsAsync(dto.Email, userLanguage);
+        await ValidateUsernameNotExistsAsync(dto.Username, userLanguage);
 
-        var newUser = new User(dto.FullName, dto.Email, dto.Gender, dto.Birthday);
-        newUser.SetUsername(dto.Username);
-        newUser.PasswordHash = _passwordHasher.HashPassword(newUser, dto.Password);
+        var role = dto.RoleId.HasValue 
+            ? await GetRoleOrThrowAsync(dto.RoleId.Value, userLanguage) 
+            : null;
+
+        var passwordHash = _passwordHasher.HashPassword(null!, dto.Password);
+        var newUser = new User(dto.FullName, dto.Email, dto.Username, passwordHash, dto.Gender, dto.Birthday);
 
         if (profilePicture != null)
         {
@@ -119,13 +106,9 @@ public class UserService : IUserService
         await _unitOfWork.UserRepository.AddAsync(newUser);
         await _unitOfWork.SaveChangesAsync();
 
-        if (dto.RoleId.HasValue)
+        if (role != null)
         {
-            var role = await _roleManager.FindByIdAsync(dto.RoleId.Value.ToString());
-            if (role != null && !role.IsDeleted)
-            {
-                await _userManager.AddToRoleAsync(newUser, role.Name!);
-            }
+            await _userManager.AddToRoleAsync(newUser, role.Name!);
         }
 
         return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.created", userLanguage));
@@ -133,14 +116,8 @@ public class UserService : IUserService
 
     public async Task<ApiResponseDto<object>> UpdateUserAsync(Guid id, UpdateUserDto dto, IFormFile? profilePicture, Guid currentUserId)
     {
-        var currentUser = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
-        var userLanguage = currentUser?.Language ?? Language.en;
-
-        var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
-        if (user == null)
-        {
-            throw new AppException(_localization.GetMessage("user.notfound", userLanguage), 404);
-        }
+        var userLanguage = await GetUserLanguageAsync(currentUserId);
+        var user = await GetUserOrThrowAsync(id, userLanguage);
 
         if (!string.IsNullOrEmpty(dto.FullName))
         {
@@ -148,21 +125,15 @@ public class UserService : IUserService
             property?.SetValue(user, dto.FullName);
         }
 
-        if (!string.IsNullOrEmpty(dto.Email))
+        if (!string.IsNullOrEmpty(dto.Email) && user.Email != dto.Email)
         {
-            if (user.Email != dto.Email && await _unitOfWork.UserRepository.EmailExistsAsync(dto.Email))
-            {
-                throw new AppException(string.Format(_localization.GetMessage("user.email_exists", userLanguage), dto.Email), 409);
-            }
+            await ValidateEmailNotExistsAsync(dto.Email, userLanguage);
             user.Email = dto.Email;
         }
 
-        if (!string.IsNullOrEmpty(dto.Username))
+        if (!string.IsNullOrEmpty(dto.Username) && user.UserName != dto.Username)
         {
-            if (user.UserName != dto.Username && await _unitOfWork.UserRepository.UserExistsAsync(dto.Username))
-            {
-                throw new AppException(string.Format(_localization.GetMessage("user.userName_exists", userLanguage), dto.Username), 409);
-            }
+            await ValidateUsernameNotExistsAsync(dto.Username, userLanguage);
             user.SetUsername(dto.Username);
         }
 
@@ -194,17 +165,15 @@ public class UserService : IUserService
 
         if (dto.RoleId.HasValue)
         {
+            var newRole = await GetRoleOrThrowAsync(dto.RoleId.Value, userLanguage);
+
             var currentRoles = await _userManager.GetRolesAsync(user);
             if (currentRoles.Any())
             {
                 await _userManager.RemoveFromRolesAsync(user, currentRoles);
             }
 
-            var newRole = await _roleManager.FindByIdAsync(dto.RoleId.Value.ToString());
-            if (newRole != null && !newRole.IsDeleted)
-            {
-                await _userManager.AddToRoleAsync(user, newRole.Name!);
-            }
+            await _userManager.AddToRoleAsync(user, newRole.Name!);
         }
 
         user.SetUpdated(currentUserId);
@@ -217,11 +186,7 @@ public class UserService : IUserService
 
     public async Task<ApiResponseDto<object>> UpdateUserLanguageAsync(Guid currentUserId, UpdateUserLanguageDto dto)
     {
-        var user = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
-        if (user == null)
-        {
-            throw new AppException(_localization.GetMessage("user.notfound"), 404);
-        }
+        var user = await GetUserOrThrowAsync(currentUserId);
 
         user.SetLanguage(dto.Language);
         user.SetUpdated(currentUserId);
@@ -234,14 +199,8 @@ public class UserService : IUserService
 
     public async Task<ApiResponseDto<object>> DeleteUserAsync(Guid id, Guid currentUserId)
     {
-        var currentUser = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
-        var userLanguage = currentUser?.Language ?? Language.en;
-
-        var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
-        if (user == null)
-        {
-            throw new AppException(_localization.GetMessage("user.notfound", userLanguage), 404);
-        }
+        var userLanguage = await GetUserLanguageAsync(currentUserId);
+        var user = await GetUserOrThrowAsync(id, userLanguage);
 
         user.SetDeleted(currentUserId);
         await _unitOfWork.UserRepository.UpdateAsync(user);
@@ -280,6 +239,50 @@ public class UserService : IUserService
         return ApiResponseDto<LoginResponseDto>.Success(response, _localization.GetMessage("user.login_success", user.Language));
     }
 
+    #region Private Methods
+
+    private async Task<Language> GetUserLanguageAsync(Guid userId)
+    {
+        var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+        return user?.Language ?? Language.en;
+    }
+
+    private async Task<User> GetUserOrThrowAsync(Guid id, Language? language = null)
+    {
+        var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
+        if (user == null)
+        {
+            throw new AppException(_localization.GetMessage("user.notfound", language ?? Language.en), 404);
+        }
+        return user;
+    }
+
+    private async Task<Role> GetRoleOrThrowAsync(Guid roleId, Language language)
+    {
+        var role = await _roleManager.FindByIdAsync(roleId.ToString());
+        if (role == null || role.IsDeleted)
+        {
+            throw new AppException(_localization.GetMessage("role.notfound", language), 404);
+        }
+        return role;
+    }
+
+    private async Task ValidateEmailNotExistsAsync(string email, Language language)
+    {
+        if (await _unitOfWork.UserRepository.EmailExistsAsync(email))
+        {
+            throw new AppException(string.Format(_localization.GetMessage("user.email_exists", language), email), 409);
+        }
+    }
+
+    private async Task ValidateUsernameNotExistsAsync(string username, Language language)
+    {
+        if (await _unitOfWork.UserRepository.UserExistsAsync(username))
+        {
+            throw new AppException(string.Format(_localization.GetMessage("user.userName_exists", language), username), 409);
+        }
+    }
+
     private UserDto MapToDto(User user, List<string>? roles = null)
     {
         return new UserDto
@@ -299,4 +302,6 @@ public class UserService : IUserService
             Roles = roles ?? []
         };
     }
+
+    #endregion
 }

@@ -18,7 +18,7 @@ public class LocalizationService : ILocalizationService
             { "auth.invalid_credentials", new Dictionary<Language, string>
                 {
                     { Language.en, "Invalid username or password" },
-                    { Language.ar, "«”„ «·„” Œœ„ «Ê ﬂ·„… «·„—Ê— €Ì— ’ÕÌÕ…" }
+                    { Language.ar, "«”„ «·„” Œœ„ √Ê ﬂ·„… «·„—Ê— €Ì— ’ÕÌÕ…" }
                 }
             },
             { "role.notfound", new Dictionary<Language, string>
@@ -61,18 +61,6 @@ public class LocalizationService : ILocalizationService
                 {
                     { Language.en, "Roles retrieved successfully" },
                     { Language.ar, " „ «” —Ã«⁄ «·√œÊ«— »‰Ã«Õ" }
-                }
-            },
-            { "role.assigned", new Dictionary<Language, string>
-                {
-                    { Language.en, "Role assigned successfully" },
-                    { Language.ar, " „  ⁄ÌÌ‰ «·œÊ— »‰Ã«Õ" }
-                }
-            },
-            { "role.removed", new Dictionary<Language, string>
-                {
-                    { Language.en, "Role removed successfully" },
-                    { Language.ar, " „ ≈“«·… «·œÊ— »‰Ã«Õ" }
                 }
             },
             { "user.notfound", new Dictionary<Language, string>
@@ -121,6 +109,30 @@ public class LocalizationService : ILocalizationService
                 {
                     { Language.en, "Login successful" },
                     { Language.ar, " „  ”ÃÌ· «·œŒÊ· »‰Ã«Õ" }
+                }
+            },
+            { "page.notfound", new Dictionary<Language, string>
+                {
+                    { Language.en, "Page not found" },
+                    { Language.ar, "«·’›Õ… €Ì— „ÊÃÊœ…" }
+                }
+            },
+            { "page.has_subpages", new Dictionary<Language, string>
+                {
+                    { Language.en, "Cannot delete page because it has sub pages" },
+                    { Language.ar, "·« Ì„ﬂ‰ Õ–› «·’›Õ… ·√‰Â«  Õ ÊÌ ⁄·Ï ’›Õ«  ›—⁄Ì…" }
+                }
+            },
+            { "page.deleted", new Dictionary<Language, string>
+                {
+                    { Language.en, "Page deleted successfully" },
+                    { Language.ar, " „ Õ–› «·’›Õ… »‰Ã«Õ" }
+                }
+            },
+            { "pages.retrieved", new Dictionary<Language, string>
+                {
+                    { Language.en, "Pages retrieved successfully" },
+                    { Language.ar, " „ «” —Ã«⁄ «·’›Õ«  »‰Ã«Õ" }
                 }
             }
         };

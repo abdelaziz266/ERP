@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using System;
 using ERP.SharedKernel.Enums;
 
 namespace ERP.Modules.Users.Domain.Entities;
@@ -22,12 +21,14 @@ public class User : IdentityUser<Guid>
 
     private User() { }
 
-    public User(string fullName, string email, Gender gender, DateOnly? birthday = null)
+    public User(string fullName, string email, string username, string passwordHash, Gender gender, DateOnly? birthday = null)
     {
         Id = Guid.NewGuid();
         SecurityStamp = Guid.NewGuid().ToString();
         SetFullName(fullName);
         SetEmail(email);
+        SetUsername(username);
+        PasswordHash = passwordHash;
         Gender = gender;
         Birthday = birthday;
     }
@@ -48,7 +49,6 @@ public class User : IdentityUser<Guid>
         var normalizedEmail = email.Trim().ToLowerInvariant();
         Email = normalizedEmail;
         NormalizedEmail = normalizedEmail.ToUpperInvariant();
-        UserName = normalizedEmail;
     }
 
     public void SetCreated(Guid userId)
