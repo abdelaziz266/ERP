@@ -8,7 +8,7 @@ public class User : IdentityUser<Guid>
 {
     public string FullName { get; private set; } = null!;
     public Gender Gender { get; private set; }
-    public DateTime? Birthday { get; private set; }
+    public DateOnly? Birthday { get; private set; }
     public string? ProfilePicture { get; private set; }
     public bool IsActive { get; set; } = true;
     public Language Language { get; set; } = Language.en;
@@ -22,7 +22,7 @@ public class User : IdentityUser<Guid>
 
     private User() { }
 
-    public User(string fullName, string email, Gender gender, DateTime? birthday = null)
+    public User(string fullName, string email, Gender gender, DateOnly? birthday = null)
     {
         Id = Guid.NewGuid();
         SecurityStamp = Guid.NewGuid().ToString();
@@ -75,7 +75,7 @@ public class User : IdentityUser<Guid>
         Gender = gender;
     }
 
-    public void SetBirthday(DateTime? birthday)
+    public void SetBirthday(DateOnly? birthday)
     {
         Birthday = birthday;
     }

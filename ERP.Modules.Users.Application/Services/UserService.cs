@@ -4,7 +4,9 @@ using ERP.Modules.Users.Domain.Entities;
 using ERP.SharedKernel.DTOs;
 using ERP.SharedKernel.Enums;
 using ERP.SharedKernel.Exceptions;
+using ERP.SharedKernel.Interfaces;
 using ERP.SharedKernel.Localization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 
 namespace ERP.Modules.Users.Application.Services;
@@ -17,6 +19,7 @@ public class UserService : IUserService
     private readonly RoleManager<Role> _roleManager;
     private readonly ITokenService _tokenService;
     private readonly ILocalizationService _localization;
+    private readonly IFileService _fileService;
 
     public UserService(
         IUsersUnitOfWork unitOfWork,
@@ -24,7 +27,8 @@ public class UserService : IUserService
         UserManager<User> userManager,
         RoleManager<Role> roleManager,
         ITokenService tokenService,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        IFileService fileService)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
@@ -32,38 +36,19 @@ public class UserService : IUserService
         _roleManager = roleManager;
         _tokenService = tokenService;
         _localization = localization;
+        _fileService = fileService;
     }
 
-    public async Task<UserDto?> GetUserByIdAsync(Guid id)
+    public async Task<ApiResponseDto<UserDto>> GetUserByIdAsync(Guid id)
     {
         var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
-        if (user == null) return null;
-
-        var roles = await _userManager.GetRolesAsync(user);
-        return MapToDto(user, roles.ToList());
-    }
-
-    public async Task<UserDto?> GetUserByEmailAsync(string email)
-    {
-        var user = await _unitOfWork.UserRepository.GetByEmailAsync(email);
-        if (user == null) return null;
-
-        var roles = await _userManager.GetRolesAsync(user);
-        return MapToDto(user, roles.ToList());
-    }
-
-    public async Task<IEnumerable<UserDto>> GetAllUsersAsync()
-    {
-        var users = await _unitOfWork.UserRepository.GetAllAsync();
-        var userDtos = new List<UserDto>();
-
-        foreach (var user in users)
+        if (user == null)
         {
-            var roles = await _userManager.GetRolesAsync(user);
-            userDtos.Add(MapToDto(user, roles.ToList()));
+            throw new AppException(_localization.GetMessage("user.notfound"), 404);
         }
 
-        return userDtos;
+        var roles = await _userManager.GetRolesAsync(user);
+        return ApiResponseDto<UserDto>.Success(MapToDto(user, roles.ToList()));
     }
 
     public async Task<PaginatedResponseDto<UserDto>> GetAllUsersWithPaginationAsync(PaginationQueryDto query)
@@ -105,8 +90,11 @@ public class UserService : IUserService
         );
     }
 
-    public async Task<UserDto> CreateUserAsync(CreateUserDto dto, string? profilePicturePath = null, Language userLanguage = Language.en)
+    public async Task<ApiResponseDto<object>> CreateUserAsync(CreateUserDto dto, IFormFile? profilePicture, Guid currentUserId)
     {
+        var user = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
+        var userLanguage = user?.Language ?? Language.en;
+
         if (await _unitOfWork.UserRepository.EmailExistsAsync(dto.Email))
         {
             var message = _localization.GetMessage("user.email_exists", userLanguage);
@@ -118,16 +106,17 @@ public class UserService : IUserService
             throw new AppException(string.Format(message, dto.Username), 409);
         }
 
-        var user = new User(dto.FullName, dto.Email, dto.Gender, dto.Birthday);
-        user.SetUsername(dto.Username);
-        user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
+        var newUser = new User(dto.FullName, dto.Email, dto.Gender, dto.Birthday);
+        newUser.SetUsername(dto.Username);
+        newUser.PasswordHash = _passwordHasher.HashPassword(newUser, dto.Password);
 
-        if (!string.IsNullOrEmpty(profilePicturePath))
+        if (profilePicture != null)
         {
-            user.SetProfilePicture(profilePicturePath);
+            var profilePicturePath = await _fileService.UploadImageAsync(profilePicture, "profile-pictures");
+            newUser.SetProfilePicture(profilePicturePath);
         }
 
-        await _unitOfWork.UserRepository.AddAsync(user);
+        await _unitOfWork.UserRepository.AddAsync(newUser);
         await _unitOfWork.SaveChangesAsync();
 
         if (dto.RoleId.HasValue)
@@ -135,21 +124,22 @@ public class UserService : IUserService
             var role = await _roleManager.FindByIdAsync(dto.RoleId.Value.ToString());
             if (role != null && !role.IsDeleted)
             {
-                await _userManager.AddToRoleAsync(user, role.Name!);
+                await _userManager.AddToRoleAsync(newUser, role.Name!);
             }
         }
 
-        var roles = await _userManager.GetRolesAsync(user);
-        return MapToDto(user, roles.ToList());
+        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.created", userLanguage));
     }
 
-    public async Task<UserDto> UpdateUserAsync(Guid id, UpdateUserDto dto, string? profilePicturePath = null, Language userLanguage = Language.en)
+    public async Task<ApiResponseDto<object>> UpdateUserAsync(Guid id, UpdateUserDto dto, IFormFile? profilePicture, Guid currentUserId)
     {
+        var currentUser = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
+        var userLanguage = currentUser?.Language ?? Language.en;
+
         var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
         if (user == null)
         {
-            var message = _localization.GetMessage("user.notfound", userLanguage);
-            throw new AppException(message, 404);
+            throw new AppException(_localization.GetMessage("user.notfound", userLanguage), 404);
         }
 
         if (!string.IsNullOrEmpty(dto.FullName))
@@ -162,15 +152,17 @@ public class UserService : IUserService
         {
             if (user.Email != dto.Email && await _unitOfWork.UserRepository.EmailExistsAsync(dto.Email))
             {
-                var message = _localization.GetMessage("user.email_exists", userLanguage);
-                throw new AppException(string.Format(message, dto.Email), 409);
+                throw new AppException(string.Format(_localization.GetMessage("user.email_exists", userLanguage), dto.Email), 409);
             }
             user.Email = dto.Email;
-            user.UserName = dto.Email.ToLowerInvariant();
         }
 
         if (!string.IsNullOrEmpty(dto.Username))
         {
+            if (user.UserName != dto.Username && await _unitOfWork.UserRepository.UserExistsAsync(dto.Username))
+            {
+                throw new AppException(string.Format(_localization.GetMessage("user.userName_exists", userLanguage), dto.Username), 409);
+            }
             user.SetUsername(dto.Username);
         }
 
@@ -189,8 +181,9 @@ public class UserService : IUserService
             user.SetBirthday(dto.Birthday.Value);
         }
 
-        if (!string.IsNullOrEmpty(profilePicturePath))
+        if (profilePicture != null)
         {
+            var profilePicturePath = await _fileService.UploadImageAsync(profilePicture, "profile-pictures");
             user.SetProfilePicture(profilePicturePath);
         }
 
@@ -214,96 +207,80 @@ public class UserService : IUserService
             }
         }
 
-        user.SetUpdated(Guid.Empty);
+        user.SetUpdated(currentUserId);
 
         await _unitOfWork.UserRepository.UpdateAsync(user);
         await _unitOfWork.SaveChangesAsync();
 
-        var roles = await _userManager.GetRolesAsync(user);
-        return MapToDto(user, roles.ToList());
+        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.updated", userLanguage));
     }
 
-    public async Task<UserDto> UpdateUserProfilePictureAsync(Guid userId, string profilePicturePath, Language userLanguage = Language.en)
+    public async Task<ApiResponseDto<object>> UpdateUserLanguageAsync(Guid currentUserId, UpdateUserLanguageDto dto)
     {
-        var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
+        var user = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
         if (user == null)
         {
-            var message = _localization.GetMessage("user.notfound", userLanguage);
-            throw new AppException(message, 404);
-        }
-
-        user.SetProfilePicture(profilePicturePath);
-        user.SetUpdated(userId);
-
-        await _unitOfWork.UserRepository.UpdateAsync(user);
-        await _unitOfWork.SaveChangesAsync();
-
-        var roles = await _userManager.GetRolesAsync(user);
-        return MapToDto(user, roles.ToList());
-    }
-
-    public async Task<UserDto> UpdateUserLanguageAsync(Guid userId, UpdateUserLanguageDto dto)
-    {
-        var user = await _unitOfWork.UserRepository.GetByIdAsync(userId);
-        if (user == null)
-        {
-            throw new AppException($"User with ID {userId} not found", 404);
+            throw new AppException(_localization.GetMessage("user.notfound"), 404);
         }
 
         user.SetLanguage(dto.Language);
-        user.SetUpdated(userId);
+        user.SetUpdated(currentUserId);
 
         await _unitOfWork.UserRepository.UpdateAsync(user);
         await _unitOfWork.SaveChangesAsync();
 
-        var roles = await _userManager.GetRolesAsync(user);
-        return MapToDto(user, roles.ToList());
+        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.updated", dto.Language));
     }
 
-    public async Task DeleteUserAsync(Guid id, Language userLanguage = Language.en)
+    public async Task<ApiResponseDto<object>> DeleteUserAsync(Guid id, Guid currentUserId)
     {
+        var currentUser = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
+        var userLanguage = currentUser?.Language ?? Language.en;
+
         var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
         if (user == null)
         {
-            var message = _localization.GetMessage("user.notfound", userLanguage);
-            throw new AppException(message, 404);
+            throw new AppException(_localization.GetMessage("user.notfound", userLanguage), 404);
         }
 
-        await _unitOfWork.UserRepository.DeleteAsync(user);
+        user.SetDeleted(currentUserId);
+        await _unitOfWork.UserRepository.UpdateAsync(user);
         await _unitOfWork.SaveChangesAsync();
+
+        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.deleted", userLanguage));
     }
 
-    public async Task<LoginResponseDto> LoginAsync(LoginRequestDto dto)
+    public async Task<ApiResponseDto<LoginResponseDto>> LoginAsync(LoginRequestDto dto)
     {
         var user = await _unitOfWork.UserRepository.GetByUsernameAsync(dto.Username);
         if (user == null || !user.IsActive)
         {
             var lang = user?.Language ?? Language.ar;
-            var message = _localization.GetMessage("auth.invalid_credentials", lang);
-            throw new AppException(message, 401);
+            throw new AppException(_localization.GetMessage("auth.invalid_credentials", lang), 401);
         }
 
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, dto.Password);
         if (!isPasswordValid)
         {
-            var message = _localization.GetMessage("auth.invalid_credentials", user.Language);
-            throw new AppException(message, 401);
+            throw new AppException(_localization.GetMessage("auth.invalid_credentials", user.Language), 401);
         }
 
         var token = _tokenService.GenerateAccessToken(user);
         var expirationDays = _tokenService.GetTokenExpirationDays();
 
         var roles = await _userManager.GetRolesAsync(user);
-        return new LoginResponseDto
+        var response = new LoginResponseDto
         {
             AccessToken = token,
             TokenType = "Bearer",
             ExpiresIn = expirationDays * 24 * 60 * 60,
             User = MapToDto(user, roles.ToList())
         };
+
+        return ApiResponseDto<LoginResponseDto>.Success(response, _localization.GetMessage("user.login_success", user.Language));
     }
 
-    private static UserDto MapToDto(User user, List<string>? roles = null)
+    private UserDto MapToDto(User user, List<string>? roles = null)
     {
         return new UserDto
         {
@@ -313,7 +290,7 @@ public class UserService : IUserService
             Username = user.UserName ?? string.Empty,
             Gender = user.Gender,
             Birthday = user.Birthday,
-            ProfilePicture = user.ProfilePicture,
+            ProfilePicture = _fileService.GetFileUrl(user.ProfilePicture ?? string.Empty),
             IsActive = user.IsActive,
             Language = user.Language,
             CreatedAt = user.CreatedAt,

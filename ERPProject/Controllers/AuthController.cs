@@ -21,12 +21,6 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<ApiResponseDto<LoginResponseDto>>> Login([FromBody] LoginRequestDto dto)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
-        var response = await _userService.LoginAsync(dto);
-        return Ok(ApiResponseDto<LoginResponseDto>.Success(response, "Login successful"));
+        return Ok(await _userService.LoginAsync(dto));
     }
 }

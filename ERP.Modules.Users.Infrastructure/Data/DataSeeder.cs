@@ -46,7 +46,7 @@ public class DataSeeder
                 fullName: "Super Administrator",
                 email: "superadmin@system.com",
                 gender: Gender.Male,
-                birthday: new DateTime(1990, 1, 1)
+                birthday: new DateOnly(1990, 1, 1)
             );
 
             superAdminUser.SetUsername("superadmin");

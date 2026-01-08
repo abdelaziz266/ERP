@@ -20,7 +20,7 @@ public class UpdateUserDto
 
     public Gender? Gender { get; set; }
 
-    public DateTime? Birthday { get; set; }
+    public DateOnly? Birthday { get; set; }
 
     public bool? IsActive { get; set; }
 
