@@ -26,7 +26,7 @@ public class PageService : IPageService
         var page = await _unitOfWork.PageRepository.GetByIdWithSubPagesAsync(id);
         if (page == null)
         {
-            throw new AppException(_localization.GetMessage("page.notfound"), 404);
+            throw new AppException(_localization.Get("page.notfound"), 404);
         }
 
         return ApiResponseDto<PageDto>.Success(MapToDto(page));
@@ -37,7 +37,7 @@ public class PageService : IPageService
         var pages = await _unitOfWork.PageRepository.GetAllParentPagesAsync();
         var pageDtos = pages.Select(MapToDto).ToList();
 
-        return ApiResponseDto<List<PageDto>>.Success(pageDtos, _localization.GetMessage("pages.retrieved"));
+        return ApiResponseDto<List<PageDto>>.Success(pageDtos, _localization.Get("pages.retrieved"));
     }
 
     public async Task<ApiResponseDto<object>> DeletePageAsync(Guid id, Guid currentUserId)
@@ -47,19 +47,19 @@ public class PageService : IPageService
         var page = await _unitOfWork.PageRepository.GetByIdAsync(id);
         if (page == null)
         {
-            throw new AppException(_localization.GetMessage("page.notfound", userLanguage), 404);
+            throw new AppException(_localization.Get("page.notfound", userLanguage), 404);
         }
 
         if (await _unitOfWork.PageRepository.HasSubPagesAsync(id))
         {
-            throw new AppException(_localization.GetMessage("page.has_subpages", userLanguage), 400);
+            throw new AppException(_localization.Get("page.has_subpages", userLanguage), 400);
         }
 
         page.SetDeleted(currentUserId);
         await _unitOfWork.PageRepository.UpdateAsync(page);
         await _unitOfWork.SaveChangesAsync();
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("page.deleted", userLanguage));
+        return ApiResponseDto<object>.Success(null, _localization.Get("page.deleted", userLanguage));
     }
 
     private async Task<Language> GetUserLanguageAsync(Guid userId)

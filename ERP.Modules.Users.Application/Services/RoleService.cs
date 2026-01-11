@@ -38,7 +38,7 @@ public class RoleService : IRoleService
         
         if (role == null)
         {
-            throw new AppException(_localization.GetMessage("role.notfound"), 404);
+            throw new AppException(_localization.Get("role.notfound"), 404);
         }
 
         return ApiResponseDto<RoleDto>.Success(MapToDto(role));
@@ -83,7 +83,7 @@ public class RoleService : IRoleService
             query.PageNumber,
             query.PageSize,
             totalCount,
-            _localization.GetMessage("roles.retrieved")
+            _localization.Get("roles.retrieved")
         );
     }
 
@@ -95,7 +95,7 @@ public class RoleService : IRoleService
             .FirstOrDefaultAsync(r => r.Name == dto.Name && !r.IsDeleted);
         if (roleExists != null)
         {
-            throw new AppException(string.Format(_localization.GetMessage("role.already_exists", userLanguage), dto.Name), 409);
+            throw new AppException(string.Format(_localization.Get("role.already_exists"), dto.Name), 409);
         }
 
         var role = new Role(dto.Name);
@@ -108,7 +108,7 @@ public class RoleService : IRoleService
             throw new AppException($"Failed to create role: {errors}", 400);
         }
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("role.created", userLanguage));
+        return ApiResponseDto<object>.Success(null, _localization.Get("role.created"));
     }
 
     public async Task<ApiResponseDto<object>> UpdateRoleAsync(string id, UpdateRoleDto dto, Guid currentUserId)
@@ -119,7 +119,7 @@ public class RoleService : IRoleService
             .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
         if (role == null)
         {
-            throw new AppException(_localization.GetMessage("role.notfound", userLanguage), 404);
+            throw new AppException(_localization.Get("role.notfound"), 404);
         }
 
         // Update role name if provided
@@ -129,7 +129,7 @@ public class RoleService : IRoleService
                 .FirstOrDefaultAsync(r => r.Name == dto.Name && !r.IsDeleted && r.Id.ToString() != id);
             if (roleExists != null)
             {
-                throw new AppException(string.Format(_localization.GetMessage("role.already_exists", userLanguage), dto.Name), 409);
+                throw new AppException(string.Format(_localization.Get("role.already_exists"), dto.Name), 409);
             }
 
             role.Name = dto.Name;
@@ -153,7 +153,7 @@ public class RoleService : IRoleService
 
         await _unitOfWork.SaveChangesAsync();
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("role.updated", userLanguage));
+        return ApiResponseDto<object>.Success(null, _localization.Get("role.updated"));
     }
 
     public async Task<ApiResponseDto<object>> DeleteRoleAsync(string id, Guid currentUserId)
@@ -164,13 +164,13 @@ public class RoleService : IRoleService
             .FirstOrDefaultAsync(r => r.Id.ToString() == id && !r.IsDeleted);
         if (role == null)
         {
-            throw new AppException(_localization.GetMessage("role.notfound", userLanguage), 404);
+            throw new AppException(_localization.Get("role.notfound"), 404);
         }
 
         var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!);
         if (usersInRole.Any(u => !u.IsDeleted))
         {
-            throw new AppException(_localization.GetMessage("role.has_users", userLanguage), 400);
+            throw new AppException(_localization.Get("role.has_users"), 400);
         }
 
         // Delete role pages
@@ -187,7 +187,7 @@ public class RoleService : IRoleService
 
         await _unitOfWork.SaveChangesAsync();
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("role.deleted", userLanguage));
+        return ApiResponseDto<object>.Success(null, _localization.Get("role.deleted"));
     }
 
     #region Private Methods
@@ -206,7 +206,7 @@ public class RoleService : IRoleService
             var page = await _unitOfWork.PageRepository.GetByIdAsync(pageId);
             if (page == null)
             {
-                throw new AppException(_localization.GetMessage("page.notfound", userLanguage), 404);
+                throw new AppException(_localization.Get("page.notfound"), 404);
             }
         }
 

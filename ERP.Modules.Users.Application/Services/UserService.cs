@@ -79,7 +79,7 @@ public class UserService : IUserService
             query.PageNumber,
             query.PageSize,
             totalCount,
-            _localization.GetMessage("users.retrieved")
+            _localization.Get("users.retrieved")
         );
     }
 
@@ -111,7 +111,7 @@ public class UserService : IUserService
             await _userManager.AddToRoleAsync(newUser, role.Name!);
         }
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.created", userLanguage));
+        return ApiResponseDto<object>.Success(null, _localization.Get("user.created"));
     }
 
     public async Task<ApiResponseDto<object>> UpdateUserAsync(Guid id, UpdateUserDto dto, IFormFile? profilePicture, Guid currentUserId)
@@ -181,7 +181,7 @@ public class UserService : IUserService
         await _unitOfWork.UserRepository.UpdateAsync(user);
         await _unitOfWork.SaveChangesAsync();
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.updated", userLanguage));
+        return ApiResponseDto<object>.Success(null, _localization.Get("user.updated"));
     }
 
     public async Task<ApiResponseDto<object>> UpdateUserLanguageAsync(Guid currentUserId, UpdateUserLanguageDto dto)
@@ -194,19 +194,19 @@ public class UserService : IUserService
         await _unitOfWork.UserRepository.UpdateAsync(user);
         await _unitOfWork.SaveChangesAsync();
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.updated", dto.Language));
+        return ApiResponseDto<object>.Success(null, _localization.Get("user.updated", dto.Language));
     }
 
     public async Task<ApiResponseDto<object>> DeleteUserAsync(Guid id, Guid currentUserId)
     {
         var userLanguage = await GetUserLanguageAsync(currentUserId);
-        var user = await GetUserOrThrowAsync(id, userLanguage);
+        var user = await GetUserOrThrowAsync(id);
 
         user.SetDeleted(currentUserId);
         await _unitOfWork.UserRepository.UpdateAsync(user);
         await _unitOfWork.SaveChangesAsync();
 
-        return ApiResponseDto<object>.Success(null, _localization.GetMessage("user.deleted", userLanguage));
+        return ApiResponseDto<object>.Success(null, _localization.Get("user.deleted"));
     }
 
     public async Task<ApiResponseDto<LoginResponseDto>> LoginAsync(LoginRequestDto dto)
@@ -215,13 +215,13 @@ public class UserService : IUserService
         if (user == null || !user.IsActive)
         {
             var lang = user?.Language ?? Language.ar;
-            throw new AppException(_localization.GetMessage("auth.invalid_credentials", lang), 401);
+            throw new AppException(_localization.Get("auth.invalid_credentials"), 401);
         }
 
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, dto.Password);
         if (!isPasswordValid)
         {
-            throw new AppException(_localization.GetMessage("auth.invalid_credentials", user.Language), 401);
+            throw new AppException(_localization.Get("auth.invalid_credentials"), 401);
         }
 
         var token = _tokenService.GenerateAccessToken(user);
@@ -236,7 +236,7 @@ public class UserService : IUserService
             User = MapToDto(user, roles.ToList())
         };
 
-        return ApiResponseDto<LoginResponseDto>.Success(response, _localization.GetMessage("user.login_success", user.Language));
+        return ApiResponseDto<LoginResponseDto>.Success(response, _localization.Get("user.login_success", user.Language));
     }
 
     #region Private Methods
@@ -252,7 +252,7 @@ public class UserService : IUserService
         var user = await _unitOfWork.UserRepository.GetByIdAsync(id);
         if (user == null)
         {
-            throw new AppException(_localization.GetMessage("user.notfound", language ?? Language.en), 404);
+            throw new AppException(_localization.Get("user.notfound", language ?? Language.en), 404);
         }
         return user;
     }
@@ -262,7 +262,7 @@ public class UserService : IUserService
         var role = await _roleManager.FindByIdAsync(roleId.ToString());
         if (role == null || role.IsDeleted)
         {
-            throw new AppException(_localization.GetMessage("role.notfound", language), 404);
+            throw new AppException(_localization.Get("role.notfound", language), 404);
         }
         return role;
     }
@@ -271,7 +271,7 @@ public class UserService : IUserService
     {
         if (await _unitOfWork.UserRepository.EmailExistsAsync(email))
         {
-            throw new AppException(string.Format(_localization.GetMessage("user.email_exists", language), email), 409);
+            throw new AppException(string.Format(_localization.Get("user.email_exists", language), email), 409);
         }
     }
 
@@ -279,7 +279,7 @@ public class UserService : IUserService
     {
         if (await _unitOfWork.UserRepository.UserExistsAsync(username))
         {
-            throw new AppException(string.Format(_localization.GetMessage("user.userName_exists", language), username), 409);
+            throw new AppException(string.Format(_localization.Get("user.userName_exists", language), username), 409);
         }
     }
 
